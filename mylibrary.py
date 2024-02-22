@@ -660,6 +660,15 @@ def Simpson(a,b,f,N):   #Simpson method for integration
             integral += 2*h*f(a + index*h)/3 #for even indices, weight = 2
     return integral
 
+def simpson_tolerance(a, b, func, tolerance=1e-3, max_iterations=100):
+    for i in range(1, max_iterations):
+        I = Simpson(a,b,func,2*i)
+        I_next = Simpson(a,b,func,2*(i+1))
+        if abs(I_next - I) < tolerance:
+            return I_next 
+        I = I_next
+    return None
+
 def derivative(f, n, x, h=1e-3): #derivative finder
     #n decides 1st or 2nd order derivative of f(x)
     if int(n)==1:   #at x; h is the tolerance value
@@ -782,3 +791,171 @@ def RK4(h, x, x_lim, y, func): #code for Runge-Kutta method
         e = "Please keep the upper bound for x higher than the lower bound"
         return e
     
+def RKN4(h, x, x_lim, y, v, f1, f2): #code for Runge-Kutta-Nyström method
+    """
+    h : step size for RKN4
+    x : initial value for x
+    x_lim : final value for x
+    y : value of y(0)
+    v : value of y'(0)
+    f1 : 2nd derivative of y wrt x
+    f2 : 1st derivative of y wrt x
+    
+    X : array of values for x
+    Y : solution curve values
+    """
+    X = []
+    Y = []
+    
+    if x < x_lim: #start iff initial x is less than x_lim
+        while x <= x_lim: #iterate until x reaches x_lim
+            #increments for f1 (ki) and f2 (li) calculated
+            k1 = h*f1(v)
+            l1 = h*f2(x, y, v)
+
+            k2 = h*f1(v + l1/2)
+            l2 = h*f2(x + h/2, y + k1/2, v+l1/2)
+
+            k3 = h*f1(v + l2/2)
+            l3 = h*f2(x + h/2, y + k2/2, v+l2/2)
+
+            k4 = h*f1(v + l3 / 2)
+            l4 = h*f2(x + h/2, y + k3/2, v+l3/2)
+            
+            #produce x-y pairs from x to x_lim while updating v
+            y = y + 1/6*(k1 + 2*k2 + 2*k3 + k4)
+            v = v + 1/6*(l1 + 2*l2 + 2*l3 + l4)
+            x = x + h
+            
+            X.append(x)
+            Y.append(y)
+            
+        return X, Y
+    
+    elif x > x_lim:
+        while x >= x_lim: #iterate until x reaches x_lim
+            #increments for f1 (ki) and f2 (li) calculated
+            k1 = h*f1(v)
+            l1 = h*f2(x, y, v)
+
+            k2 = h*f1(v + l1/2)
+            l2 = h*f2(x + h/2, y + k1/2, v+l1/2)
+
+            k3 = h*f1(v + l2/2)
+            l3 = h*f2(x + h/2, y + k2/2, v+l2/2)
+
+            k4 = h*f1(v + l3 / 2)
+            l4 = h*f2(x + h/2, y + k3/2, v+l3/2)
+            
+            #produce x-y pairs from x to x_lim while updating v
+            y = y + 1/6*(k1 + 2*k2 + 2*k3 + k4)
+            v = v + 1/6*(l1 + 2*l2 + 2*l3 + l4)
+            x = x + h
+            
+            X.append(x)
+            Y.append(y)
+            
+        return X, Y
+
+def RK4_2(d2ydx2, dydx, x0, y0, z0, xf, step_size): 
+    """
+    d2ydx2 : 2nd derivative of y wrt x
+    dydx : 1st derivative of y wrt x
+    x0 : lower bound
+    y0 : value of y at lower bound
+    z0 : value of dy/dx at x=0
+    xf : final value of x
+    step_size : step size
+    
+    x = values of x
+    y = values of solution curve, y
+    z = values of dy/dx
+    """
+    x = []
+    y = []
+    z = []
+    x.append(x0)
+    y.append(y0)
+    z.append(z0)
+
+    n = int((xf-x0)/step_size) #find number of steps to iterate for
+    for i in range(n):
+        x.append(x[i] + step_size)
+        k1 = step_size * dydx(x[i], y[i], z[i])
+        l1 = step_size * d2ydx2(x[i], y[i], z[i])
+        k2 = step_size * dydx(x[i] + step_size/2, y[i] + k1/2, z[i] + l1/2)
+        l2 = step_size * d2ydx2(x[i] + step_size/2, y[i] + k1/2, z[i] + l1/2)
+        k3 = step_size * dydx(x[i] + step_size/2, y[i] + k2/2, z[i] + l2/2)
+        l3 = step_size * d2ydx2(x[i] + step_size/2, y[i] + k2/2, z[i] + l2/2)
+        k4 = step_size * dydx(x[i] + step_size, y[i] + k3, z[i] + l3)
+        l4 = step_size * d2ydx2(x[i] + step_size, y[i] + k3, z[i] + l3)
+
+        y.append(y[i] + (k1 + 2*k2 + 2*k3 + k4)/6)
+        z.append(z[i] + (l1 + 2*l2 + 2*l3 + l4)/6)
+
+    return x, y, z
+
+def Shooting(d2ydx2, dydx, x0, y0, xf, yf, z1, z2, step_size, tol=1e-6):
+    """
+    d2y/dx2 : second derivative of y
+    dy/dx : first derivative of y
+    x0 : initial value for x
+    y0 : value of y at x0
+    xf: final value for x
+    yf : value of dy/dx at x_lim
+    step_size : step size for the RK4 integrator
+    z1 : guess interval lower bound
+    z2 : guess interval upper bound
+    tol : tolerance value for defining accuracy of Shooting method
+    (defaults to 10^(-6))
+    
+    X : values of x
+    Y : solution curve (y)
+    Z : first derivative of y wrt x
+    
+    """
+    
+    x, y, z = RK4_2(d2ydx2, dydx, x0, y0, z1, xf, step_size)
+    yn = y[-1]
+
+    if abs(yn - yf) > tol:
+        if yn < yf:
+            zeta_l = z1
+            yl = yn
+
+            x, y, z = RK4_2(d2ydx2, dydx, x0, y0, z2, xf, step_size)
+            yn = y[-1]
+
+            if yn > yf:
+                zeta_h = z2
+                yh = yn
+                #Lagrange interpolation step
+                zeta = LagrangeInterpolation(zeta_h, zeta_l, yh, yl, yf)
+                #RK4 using updated zeta
+                x, y, z = RK4_2(d2ydx2, dydx, x0, y0, zeta, xf, step_size)
+                return x, y, z
+            else:
+                print("Bracketing was unsuccessful")
+
+        elif yn > yf:
+            zeta_h = z1
+            yh = yn
+
+            x, y, z = RK4_2(d2ydx2, dydx, x0, y0, z2, xf, step_size)
+            yn = y[-1]
+
+            if yn < yf:
+                zeta_l = z2
+                yl = yn
+                #Lagrange interpolation step
+                zeta = LagrangeInterpolation(zeta_h, zeta_l, yh, yl, yf)
+                #RK4 using updated zeta
+                x, y, z = RK4_2(d2ydx2, dydx, x0, y0, zeta, xf, step_size)
+                return x, y, z
+
+            else:
+                print("Bracketing was unsuccessful")
+                
+    else:
+        #solution is perfect with z1
+        return x, y, z         
